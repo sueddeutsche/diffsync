@@ -1,6 +1,6 @@
 const isEmpty = require("lodash.isempty");
 const EventEmitter = require("events").EventEmitter;
-const jsondiffpatch = require("jsondiffpatch");
+const jsondiffpatch = require("./diffpatch");
 const COMMANDS = require("./commands");
 const deepCopy = require("./deepCopy");
 const methodsToBind = [
@@ -29,14 +29,6 @@ class Client extends EventEmitter {
             localCopy: {},
             edits: []
         };
-
-        // set up the jsondiffpatch options
-        // see here for options: https://github.com/benjamine/jsondiffpatch#options
-        diffOptions = Object.assign({
-            objectHash: function (obj) {
-                return obj.id || obj._id || JSON.stringify(obj);
-            }
-        }, diffOptions);
 
         this.jsondiffpatch = jsondiffpatch.create(diffOptions);
 

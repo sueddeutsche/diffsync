@@ -1,5 +1,5 @@
 const isEmpty = require("lodash.isempty");
-const jsondiffpatch = require("jsondiffpatch");
+const jsondiffpatch = require("./diffpatch");
 const COMMANDS = require("./commands");
 const deepCopy = require("./deepCopy");
 
@@ -21,16 +21,7 @@ class Server {
         // bind functions
         this.trackConnection = this.trackConnection.bind(this);
 
-        // set up the jsondiffpatch options
-        // see here for options: https://github.com/benjamine/jsondiffpatch#options
-        diffOptions = Object.assign({
-            objectHash: function (obj) {
-                return obj.id || obj._id || JSON.stringify(obj);
-            }
-        }, diffOptions);
-
         this.jsondiffpatch = jsondiffpatch.create(diffOptions);
-
         this.transport.on("connection", this.trackConnection);
     }
 
@@ -89,13 +80,12 @@ class Server {
      * @return {undefined}
      */
     getData(room, callback) {
-        const cachedVersion = this.data[room];
+        if (this.data[room]) {
+            return callback(null, this.data[room]);
+        }
+
         const cache = this.data;
         const requests = this.requests;
-
-        if (cachedVersion) {
-            return callback(null, cachedVersion);
-        }
 
         // do nothing in the else case because this operation
         // should only happen once

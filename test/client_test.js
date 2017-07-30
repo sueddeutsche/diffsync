@@ -2,9 +2,7 @@
 const assert = require("assert");
 const sinon = require("sinon");
 const isEmpty = require("lodash.isempty");
-const jsondiffpatch = require("jsondiffpatch").create({
-    objectHash: (obj) => obj.id || obj._id || JSON.stringify(obj)
-});
+const jsondiffpatch = require("../src/diffpatch").create();
 
 const COMMANDS = require("../index").COMMANDS;
 const Client = require("../index").Client;
