@@ -1,8 +1,6 @@
-module.exports = {
-  deepCopy: function(obj){
+module.exports = function (obj) {
     if (obj === null || obj === undefined) {
-      return obj;
+        return obj;
     }
     return JSON.parse(JSON.stringify(obj));
-  }
 };

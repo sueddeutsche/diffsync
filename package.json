@@ -7,12 +7,12 @@
     "test": "mocha test/**/*.js"
   },
   "dependencies": {
+    "diff_match_patch": "^0.1.1",
     "jsondiffpatch": "^0.2.4",
-    "lodash.assign": "^3.1.0",
-    "lodash.bind": "^3.1.0",
     "lodash.isempty": "^3.0.2"
   },
   "devDependencies": {
+    "eslint": "^3.19.0",
     "lodash.isobject": "^3.0.1",
     "lodash.isarray": "^3.0.2",
     "mocha": "^3.4.2",
