@@ -4,6 +4,30 @@ const COMMANDS = require("./commands");
 const deepCopy = require("./deepCopy");
 
 
+class Users {
+
+    constructor(transport) {
+        this.transport = transport;
+        this.users = {};
+    }
+
+    // track users per room
+    addUser(connection, room) {
+        const user = { id: connection.id };
+        this.users[room] = this.users[room] || [];
+        this.users[room].push(user);
+        connection.on("disconnect", () => {
+            this.users[room] = this.users[room].filter((user) => user.id !== connection.id);
+            console.log(`User disconnected from room ${room}`, this.users[room]);
+            this.transport.to(room).emit(COMMANDS.updateUsers, this.users[room]);
+        });
+
+        console.log(`User connected to room ${room}`, this.users[room]);
+        this.transport.to(room).emit(COMMANDS.updateUsers, this.users[room]);
+    }
+}
+
+
 class Server {
 
     constructor(adapter, transport, diffOptions = {}) {
@@ -18,6 +42,8 @@ class Server {
         this.saveRequests = {};
         this.saveQueue = {};
 
+        this.users = new Users(transport);
+
         // bind functions
         this.trackConnection = this.trackConnection.bind(this);
 
@@ -27,8 +53,8 @@ class Server {
 
 
     /**
-     * Registers the correct event listeners
-     * @param  {Connection} connection The connection that should get tracked
+     * Registers the correct event listeners on the client connection
+     * @param  {Socket} connection  - The connection that should get tracked
      */
     trackConnection(connection) {
         connection.on(COMMANDS.join, this.joinConnection.bind(this, connection));
@@ -49,6 +75,9 @@ class Server {
 
             // connect to the room
             connection.join(room);
+
+            // track users per room
+            this.users.addUser(connection, room);
 
             // set up the client version for this socket
             // each connection has a backup and a shadow

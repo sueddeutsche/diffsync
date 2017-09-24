@@ -249,7 +249,7 @@ describe("DiffSync Server", () => {
             server.joinConnection(connection, testRoom, Function.prototype);
         }
 
-        it("gets data from the correct coom", () => {
+        it("gets data from the correct room", () => {
             const getDataSpy = sinon.stub(server, "getData", Function.prototype);
 
             server.receiveEdit(connection, editMessage, Function.prototype);
