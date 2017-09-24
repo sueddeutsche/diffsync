@@ -1,31 +1,34 @@
 {
-  "name": "diffsync",
-  "version": "2.1.2",
+  "name": "json-sync",
+  "version": "3.0.0",
   "description": "Real time collaborative editing for JSON objects",
   "main": "index.js",
   "scripts": {
     "test": "mocha test/**/*.js"
   },
   "dependencies": {
-    "jsondiffpatch": "^0.1.31",
-    "lodash.assign": "^3.1.0",
-    "lodash.bind": "^3.1.0",
+    "diff_match_patch": "^0.1.1",
+    "jsondiffpatch": "^0.2.4",
     "lodash.isempty": "^3.0.2"
   },
   "devDependencies": {
+    "eslint": "^3.19.0",
     "lodash.isobject": "^3.0.1",
     "lodash.isarray": "^3.0.2",
-    "mocha": "^2.2.4",
-    "sinon": "^1.14.1"
+    "mocha": "^3.4.2",
+    "sinon": "^2.4.1"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/janmonschke/diffsync.git"
+    "url": "https://github.com/sueddeutsche/json-sync.git"
   },
-  "author": "Jan Monschke",
+  "author": [
+    "Sascha Goldhofer",
+    "Jan Monschke"
+  ],
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/janmonschke/diffsync/issues"
+    "url": "https://github.com/sueddeutsche/json-sync/issues"
   },
   "keywords": [
     "collaboration",
@@ -35,5 +38,5 @@
     "client",
     "realtime"
   ],
-  "homepage": "https://github.com/janmonschke/diffsync"
+  "homepage": "https://github.com/sueddeutsche/json-sync"
 }
