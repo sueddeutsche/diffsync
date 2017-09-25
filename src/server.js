@@ -22,8 +22,31 @@ class Users {
             this.transport.to(room).emit(COMMANDS.updateUsers, this.users[room]);
         });
 
+        connection.on(COMMANDS.updateUserData, (userId, meta) => {
+            const user = this.getUser(room, userId);
+            if (user) {
+                // @todo allow removal of properties
+                Object.assign(user, meta);
+                this.transport.to(room).emit(COMMANDS.updateUsers, this.users[room]);
+            }
+        });
+
         console.log(`User connected to room ${room}`, this.users[room]);
         this.transport.to(room).emit(COMMANDS.updateUsers, this.users[room]);
+    }
+
+    getUser(room, id) {
+        const users = this.users[room];
+        if (users == null || users.length === 0) {
+            console.log(`There is no user ${id} ind room ${room}`);
+            return;
+        }
+        for (let i = 0; i < users.length; i += 1) {
+            if (users[i].id === id) {
+                return users[i];
+            }
+        }
+        return;
     }
 }
 

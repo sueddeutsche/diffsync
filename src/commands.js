@@ -5,4 +5,5 @@ module.exports = {
     error: "diffsync-error",
 
     updateUsers: "diffsync-users",
+    updateUserData: "diffsync-user"
 };
