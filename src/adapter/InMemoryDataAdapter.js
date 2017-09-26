@@ -12,7 +12,6 @@ class InMemoryDataAdapter {
     }
 
     storeData(id, data, cb) {
-        console.log("data updated");
         this.cache[id] = data;
         cb && cb(null);
     }
