@@ -24,10 +24,13 @@ class Users {
             this.transport.to(room).emit(COMMANDS.updateUsers, this.users[room]);
         });
 
+        console.log("listen to", COMMANDS.updateUserData);
+
         // request: update user meta data
-        connection.on(COMMANDS.updateUserData, (userId, meta) => {
-            const user = this.getUser(room, userId);
+        connection.on(COMMANDS.updateUserData, (roomId, meta) => {
+            const user = this.getUser(roomId, meta.id);
             if (user) {
+                console.log("Update user meta and notify");
                 // @todo allow removal of properties
                 Object.assign(user, meta);
                 this.transport.to(room).emit(COMMANDS.updateUsers, this.users[room]);
