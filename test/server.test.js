@@ -107,16 +107,14 @@ describe("DiffSync Server", () => {
 
         it("should return the correct data from the cache", () => {
             const data = { test: true };
-            const spy = sinon.spy();
             const adapterSpy = sinon.spy(server.adapter, "getData");
-
             server.data[testRoom] = data;
 
-            server.getData(testRoom, spy);
-
-            assert(spy.called);
-            assert(spy.calledWithExactly(null, data));
-            assert(!adapterSpy.called, "it should not call the adapter");
+            return server.getData(testRoom)
+                .then((response) => {
+                    assert.deepEqual(data, response);
+                    assert(!adapterSpy.called, "it should not call the adapter");
+                })
         });
 
         it("should go to adapter if cache is empty", () => {
@@ -125,37 +123,38 @@ describe("DiffSync Server", () => {
             const adapterSpy = sinon.spy(server.adapter, "getData");
 
             server.adapter.cache[testRoom] = data;
-            server.getData(testRoom, spy);
 
-            assert(spy.called, "called the callback");
-            assert(spy.args[0][1].serverCopy === data);
-
-            assert(adapterSpy.called, "alled the adapter");
-            assert(adapterSpy.calledWith(testRoom));
+            return server.getData(testRoom)
+                .then((response) => {
+                    assert.deepEqual(response.serverCopy, data);
+                    assert(adapterSpy.called, "called the adapter");
+                    assert(adapterSpy.calledWith(testRoom));
+                });
         });
 
         it("should not ask the adapter for the same data twice", () => {
-            const spy = sinon.spy();
-            const adapterSpy = sinon.stub(server.adapter, "getData").callsFake(Function.prototype);
+            const adapterSpy = sinon.stub(server.adapter, "getData").callsFake((id) => Promise.resolve());
 
-            server.getData(testRoom, spy);
-            server.getData(testRoom, spy);
-
-            assert(adapterSpy.calledOnce);
+            return Promise.all(
+                [
+                    server.getData(testRoom),
+                    server.getData(testRoom)
+                ])
+                .then(() => assert(adapterSpy.calledOnce));
         });
 
         it("should create the correct format for data internally", () => {
             const data = { test: true };
-            const spy = sinon.spy();
 
             server.adapter.cache[testRoom] = data;
-            server.getData(testRoom, spy);
 
-            assert(spy.called, "called the callback");
-            assert(isArray(server.data[testRoom].registeredSockets), "correct data in `serverCopy`");
-            assert(isObject(server.data[testRoom].clientVersions), "correct data in `clientVersions`");
-            assert(isObject(server.data[testRoom].serverCopy), "correct data in `serverCopy`");
-            assert(server.data[testRoom].serverCopy === data, "correct value of data in `serverCopy`");
+            return server.getData(testRoom)
+                .then((response) => {
+                    assert(isArray(server.data[testRoom].registeredSockets), "correct data in `serverCopy`");
+                    assert(isObject(server.data[testRoom].clientVersions), "correct data in `clientVersions`");
+                    assert(isObject(server.data[testRoom].serverCopy), "correct data in `serverCopy`");
+                    assert(server.data[testRoom].serverCopy === data, "correct value of data in `serverCopy`");
+                });
         });
     });
 
@@ -170,21 +169,19 @@ describe("DiffSync Server", () => {
         });
 
         it("calls the internal `getData` to fetch the data for a room", () => {
-            const getDataSpy = sinon.stub(server, "getData");
+            const getDataSpy = sinon.spy(server, "getData");
 
-            server.joinConnection({}, testRoom, Function.prototype);
-
-            assert(getDataSpy.called);
+            return server.joinConnection(testTransport(), testRoom, () => {
+                assert(getDataSpy.called);
+            });
         });
 
         it("returns the correct data to the client", (done) => {
-            const data = testData({
-                awesome: true
-            });
+            const data = testData({ awesome: true });
 
-            sinon.stub(server, "getData").callsFake((room, cb) => cb(null, data));
+            sinon.stub(server, "getData").callsFake((room) => Promise.resolve(data));
 
-            server.joinConnection(connection, testRoom, (_data) => {
+            return server.joinConnection(connection, testRoom, (_data) => {
                 assert.deepEqual(data.serverCopy, _data);
                 done();
             });
@@ -246,25 +243,28 @@ describe("DiffSync Server", () => {
         });
 
         function join() {
-            server.joinConnection(connection, testRoom, Function.prototype);
+            return new Promise((resolve) => server.joinConnection(connection, testRoom, resolve));
         }
 
         it("gets data from the correct room", () => {
-            const getDataSpy = sinon.stub(server, "getData").callsFake(Function.prototype);
+            const getDataSpy = sinon.stub(server, "getData").callsFake(() => Promise.resolve({ clientVersions: {} }));
 
-            server.receiveEdit(connection, editMessage, Function.prototype);
-
-            assert(getDataSpy.called);
-            assert(getDataSpy.calledWith(testRoom));
+            server
+                .receiveEdit(connection, editMessage, Function.prototype)
+                .then(() => {
+                    assert(getDataSpy.called);
+                    assert(getDataSpy.calledWith(testRoom));
+                });
         });
 
         it("emits an error if it does not find a document for this client", () => {
             const emitSpy = sinon.spy(connection, "emit");
 
-            server.receiveEdit(connection, editMessage, Function.prototype);
-
-            assert(emitSpy.called);
-            assert(emitSpy.calledWith(COMMANDS.error));
+            server.receiveEdit(connection, editMessage, Function.prototype)
+                .then(() => {
+                    assert(emitSpy.called);
+                    assert(emitSpy.calledWith(COMMANDS.error));
+                });
         });
 
         it("should perform a half server-side sync cycle", () => {
@@ -275,43 +275,44 @@ describe("DiffSync Server", () => {
             const toRoomSpy = sinon.stub(server.transport, "to").callsFake(() => emitter);
             const initialLocalVersion = 0;
 
-            join();
-            server.receiveEdit(connection, editMessage, Function.prototype);
+            join()
+                .then(() => server.receiveEdit(connection, editMessage, Function.prototype))
+                .then(() => {
+                    const serverDoc = server.data[testRoom];
+                    const clientDoc = serverDoc.clientVersions[connection.id];
 
-            const serverDoc = server.data[testRoom];
-            const clientDoc = serverDoc.clientVersions[connection.id];
+                    // the shadow and the backup have to be different after that change
+                    assert.notDeepEqual(clientDoc.shadow.doc, clientDoc.backup.doc);
+                    assert.notDeepEqual(clientDoc.shadow.doc.testArray[0], clientDoc.backup.doc.testArray[0]);
 
-            // the shadow and the backup have to be different after that change
-            assert.notDeepEqual(clientDoc.shadow.doc, clientDoc.backup.doc);
-            assert.notDeepEqual(clientDoc.shadow.doc.testArray[0], clientDoc.backup.doc.testArray[0]);
+                    // the server testArray[0] and the shadow version should be the same by value and not by reference
+                    assert.deepEqual(clientDoc.shadow.doc.testArray[0], serverDoc.serverCopy.testArray[0]);
+                    assert.notStrictEqual(clientDoc.shadow.doc.testArray[0], serverDoc.serverCopy.testArray[0]);
 
-            // the server testArray[0] and the shadow version should be the same by value and not by reference
-            assert.deepEqual(clientDoc.shadow.doc.testArray[0], serverDoc.serverCopy.testArray[0]);
-            assert.notStrictEqual(clientDoc.shadow.doc.testArray[0], serverDoc.serverCopy.testArray[0]);
+                    // the local version should be incremented by the diff
+                    assert(clientDoc.shadow.localVersion === initialLocalVersion + 1);
 
-            // the local version should be incremented by the diff
-            assert(clientDoc.shadow.localVersion === initialLocalVersion + 1);
+                    assert(saveSnapshotSpy.called);
+                    assert(sendServerChangesSpy.called);
 
-            assert(saveSnapshotSpy.called);
-            assert(sendServerChangesSpy.called);
-
-            assert(toRoomSpy.called);
-            assert(toRoomSpy.calledWithExactly(testRoom));
-            assert(emitterSpy.called);
-            assert(emitterSpy.calledWithExactly(COMMANDS.remoteUpdateIncoming, connection.id));
+                    assert(toRoomSpy.called);
+                    assert(toRoomSpy.calledWithExactly(testRoom));
+                    assert(emitterSpy.called);
+                    assert(emitterSpy.calledWithExactly(COMMANDS.remoteUpdateIncoming, connection.id));
+                });
         });
 
         it("should not send sync notifications if empty update", () => {
             const emitter = new EventEmitter();
             const emitterSpy = sinon.spy(emitter, "emit");
-
             // empty message
             editMessage.edits = [];
 
-            join();
-            server.receiveEdit(connection, editMessage, Function.prototype);
-
-            assert(!emitterSpy.called);
+            join()
+                .then(() => server.receiveEdit(connection, editMessage, Function.prototype))
+                .then(() => {
+                    assert(!emitterSpy.called);
+                });
         });
 
     });
@@ -322,22 +323,27 @@ describe("DiffSync Server", () => {
             const server = testServer();
             const storeDataSpy = sinon.spy(server.adapter, "storeData");
 
-            server.saveSnapshot(testRoom);
-
-            assert(storeDataSpy.called);
-            assert(storeDataSpy.calledWith(testRoom, server.adapter.cache[testRoom]));
+            server
+                .saveSnapshot(testRoom)
+                .then(() => {
+                    assert(storeDataSpy.called);
+                    assert(storeDataSpy.calledWith(testRoom, server.adapter.cache[testRoom]));
+                });
         });
 
         it("should save snaphots in correct order and wait for previous requests to finish", () => {
             const server = testServer();
-            const storeDataSpy = sinon.stub(server.adapter, "storeData").callsFake(Function.prototype);
+            const storeDataSpy = sinon.stub(server.adapter, "storeData").callsFake(() => Promise.resolve());
 
-            server.saveSnapshot(testRoom);
-            server.saveSnapshot(testRoom);
-            server.saveSnapshot(testRoom);
-            server.saveSnapshot(testRoom);
-
-            assert(storeDataSpy.calledOnce);
+            // the first call starts saving, the next calls are queued, which trigger a final save
+            return Promise.all(
+                [
+                    server.saveSnapshot(testRoom),
+                    server.saveSnapshot(testRoom),
+                    server.saveSnapshot(testRoom),
+                    server.saveSnapshot(testRoom)
+                ])
+            .then(() => assert(storeDataSpy.calledTwice, `Should have called saveSnapshot twice, but called: ${storeDataSpy.callCount}`));
         });
     });
 

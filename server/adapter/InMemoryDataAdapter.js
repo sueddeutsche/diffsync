@@ -4,16 +4,16 @@ class InMemoryDataAdapter {
         this.cache = cache;
     }
 
-    getData(id, cb) {
+    getData(id) {
         if (this.cache[id] == null) {
             this.cache[id] = {};
         }
-        cb(null, this.cache[id]);
+        return Promise.resolve(this.cache[id]);
     }
 
-    storeData(id, data, cb) {
+    storeData(id, data) {
         this.cache[id] = data;
-        cb && cb(null);
+        return Promise.resolve();
     }
 }
 
