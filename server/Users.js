@@ -11,6 +11,16 @@ const Users = {
         }
     },
 
+    getUsers(room) {
+        if (room) {
+            if (this.users[room]) {
+                return this.users[room]
+            }
+            return false;
+        }
+        return this.users;
+    },
+
     // track users per room
     addUser(connection, room) {
         const user = { id: connection.id };
