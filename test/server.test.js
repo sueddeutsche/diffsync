@@ -3,7 +3,7 @@ const assert = require("assert");
 const sinon = require("sinon");
 const isArray = require("lodash.isarray");
 const isObject = require("lodash.isobject");
-const jsondiffpatch = require("../src/diffpatch").create();
+const jsondiffpatch = require("../lib/diffpatch").create();
 
 const EventEmitter = require("events").EventEmitter;
 const COMMANDS = require("../index").COMMANDS;
@@ -76,8 +76,8 @@ describe("DiffSync Server", () => {
 
         it("should bind the callbacks properly", () => {
             const server = testServer();
-            const joinSpy = sinon.stub(server, "joinConnection", Function.prototype);
-            const syncSpy = sinon.stub(server, "receiveEdit", Function.prototype);
+            const joinSpy = sinon.stub(server, "joinConnection").callsFake(Function.prototype);
+            const syncSpy = sinon.stub(server, "receiveEdit").callsFake(Function.prototype);
             const testEdit = {};
             const testCb = Function.prototype;
 
@@ -136,7 +136,7 @@ describe("DiffSync Server", () => {
 
         it("should not ask the adapter for the same data twice", () => {
             const spy = sinon.spy();
-            const adapterSpy = sinon.stub(server.adapter, "getData", Function.prototype);
+            const adapterSpy = sinon.stub(server.adapter, "getData").callsFake(Function.prototype);
 
             server.getData(testRoom, spy);
             server.getData(testRoom, spy);
@@ -182,7 +182,7 @@ describe("DiffSync Server", () => {
                 awesome: true
             });
 
-            sinon.stub(server, "getData", (room, cb) => cb(null, data));
+            sinon.stub(server, "getData").callsFake((room, cb) => cb(null, data));
 
             server.joinConnection(connection, testRoom, (_data) => {
                 assert.deepEqual(data.serverCopy, _data);
@@ -250,7 +250,7 @@ describe("DiffSync Server", () => {
         }
 
         it("gets data from the correct room", () => {
-            const getDataSpy = sinon.stub(server, "getData", Function.prototype);
+            const getDataSpy = sinon.stub(server, "getData").callsFake(Function.prototype);
 
             server.receiveEdit(connection, editMessage, Function.prototype);
 
@@ -269,10 +269,10 @@ describe("DiffSync Server", () => {
 
         it("should perform a half server-side sync cycle", () => {
             const saveSnapshotSpy = sinon.spy(server, "saveSnapshot");
-            const sendServerChangesSpy = sinon.stub(server, "sendServerChanges", Function.prototype);
+            const sendServerChangesSpy = sinon.stub(server, "sendServerChanges").callsFake(Function.prototype);
             const emitter = new EventEmitter();
             const emitterSpy = sinon.spy(emitter, "emit");
-            const toRoomSpy = sinon.stub(server.transport, "to", () => emitter);
+            const toRoomSpy = sinon.stub(server.transport, "to").callsFake(() => emitter);
             const initialLocalVersion = 0;
 
             join();
@@ -330,7 +330,7 @@ describe("DiffSync Server", () => {
 
         it("should save snaphots in correct order and wait for previous requests to finish", () => {
             const server = testServer();
-            const storeDataSpy = sinon.stub(server.adapter, "storeData", Function.prototype);
+            const storeDataSpy = sinon.stub(server.adapter, "storeData").callsFake(Function.prototype);
 
             server.saveSnapshot(testRoom);
             server.saveSnapshot(testRoom);

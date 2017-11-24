@@ -1,6 +1,6 @@
 module.exports = {
-    Client: require("./src/client"),
-    Server: require("./src/server"),
-    COMMANDS: require("./src/commands"),
-    InMemoryDataAdapter: require("./src/adapter/InMemoryDataAdapter")
+    Client: require("./client"),
+    Server: require("./server"),
+    COMMANDS: require("./lib/commands"),
+    InMemoryDataAdapter: require("./server/adapter/InMemoryDataAdapter")
 };

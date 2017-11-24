@@ -2,7 +2,7 @@
 const assert = require("assert");
 const sinon = require("sinon");
 const isEmpty = require("lodash.isempty");
-const jsondiffpatch = require("../src/diffpatch").create();
+const jsondiffpatch = require("../lib/diffpatch").create();
 
 const COMMANDS = require("../index").COMMANDS;
 const Client = require("../index").Client;
@@ -63,7 +63,7 @@ describe("DiffSync Client", () => {
         beforeEach(() => (client = testClient()));
 
         it("should not schedule if update comes from the same client", () => {
-            const scheduleSpy = sinon.stub(client, "schedule", Function.prototype);
+            const scheduleSpy = sinon.stub(client, "schedule").callsFake(Function.prototype);
 
             // 1 is the id of the local client
             client.onRemoteUpdate("1");
@@ -72,7 +72,7 @@ describe("DiffSync Client", () => {
         });
 
         it("should schedule if update comes from another client", () => {
-            const scheduleSpy = sinon.stub(client, "schedule", Function.prototype);
+            const scheduleSpy = sinon.stub(client, "schedule").callsFake(Function.prototype);
 
             client.onRemoteUpdate("2");
 
