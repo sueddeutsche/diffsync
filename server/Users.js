@@ -1,12 +1,15 @@
 const COMMANDS = require("../lib/commands");
 
 
-class Users {
+const Users = {
 
-    constructor(transport) {
-        this.transport = transport;
-        this.users = {};
-    }
+    users: {},
+
+    init(transport) {
+        if (this.transport == null) {
+            this.transport = transport;
+        }
+    },
 
     // track users per room
     addUser(connection, room) {
@@ -34,7 +37,7 @@ class Users {
 
         // console.log(`User connected to room ${room}`, this.users[room]);
         this.transport.to(room).emit(COMMANDS.updateUsers, this.users[room]);
-    }
+    },
 
     getUser(room, id) {
         const users = this.users[room];

@@ -19,7 +19,7 @@ class Server {
         this.saveRequests = {};
         this.saveQueue = {};
 
-        this.users = new Users(transport);
+        Users.init(transport);
 
         // bind functions
         this.trackConnection = this.trackConnection.bind(this);
@@ -218,7 +218,7 @@ class Server {
                 connection.join(room);
 
                 // track users per room
-                this.users.addUser(connection, room);
+                Users.addUser(connection, room);
 
                 // set up the client version for this socket
                 // each connection has a backup and a shadow
