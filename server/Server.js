@@ -1,16 +1,19 @@
 const isEmpty = require("lodash.isempty");
 const Users = require("./Users");
+const EventEmitter = require("events").EventEmitter;
 const jsondiffpatch = require("../lib/diffpatch");
 const COMMANDS = require("../lib/commands");
 const deepCopy = require("../lib/deepCopy");
 
 
-class Server {
+class Server extends EventEmitter {
 
     constructor(adapter, transport, diffOptions = {}) {
         if (adapter == null || transport == null) {
             throw new Error("Need to specify an adapter and a transport");
         }
+
+        super();
 
         this.adapter = adapter;
         this.transport = transport;
@@ -181,20 +184,20 @@ class Server {
         const resetSaveSnapshotQueue = () => {
             this.saveRequests[room] = false;
             this.saveQueue[room] = false;
-        }
+        };
 
         // flag that we are currently saving data
         this.saveRequests[room] = this.getData(room)
             .then((data) => {
-                if (data == false) {
+                if (data === false) {
                     return resetSaveSnapshotQueue();
                 }
                 return this.adapter
                     .storeData(room, data.serverCopy)
-                    .then(resetSaveSnapshotQueue)
+                    .then(resetSaveSnapshotQueue);
             })
             .catch((error) => {
-                console.log(`Failed saving snapshot of room ${id}`, error.message);
+                console.log(`Failed saving snapshot of room ${room}`, error.message);
                 return resetSaveSnapshotQueue();
             });
 
