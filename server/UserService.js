@@ -23,7 +23,7 @@ const UserService = {
 
     // track users per room
     addUser(connection, room) {
-        const user = { id: connection.id };
+        const user = { id: connection.id, room, joined: new Date(), lastAction: new Date() };
         this.users[room] = this.users[room] || [];
         this.users[room].push(user);
 
@@ -46,6 +46,14 @@ const UserService = {
 
         // console.log(`User connected to room ${room}`, this.users[room]);
         this.transport.to(room).emit(COMMANDS.updateUsers, this.users[room]);
+    },
+
+    keepAlive(userConnection, room) {
+        const user = this.getUser(room, userConnection.id);
+        if (user) {
+            user.lastAction = new Date();
+            this.transport.to(room).emit(COMMANDS.updateUsers, this.users[room]);
+        }
     },
 
     getUser(room, id) {

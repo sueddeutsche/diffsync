@@ -5,6 +5,12 @@ const COMMANDS = require("../lib/commands");
 const deepCopy = require("../lib/deepCopy");
 
 
+const EVENTS = {
+    USER_JOINED: "user:joined",
+    USER_EDIT: "user:edit"
+};
+
+
 class SyncService extends EventEmitter {
 
     constructor(adapter, transport, diffOptions = {}) {
@@ -153,6 +159,7 @@ class SyncService extends EventEmitter {
 
                 // send possible patches back to client
                 this.sendServerChanges(doc, clientDoc, sendToClient);
+                this.emit(EVENTS.USER_EDIT, connection, editMessage.room);
             },
             (error) => {
                 connection.emit(COMMANDS.error, "Need to re-connect!");
@@ -218,7 +225,7 @@ class SyncService extends EventEmitter {
                 connection.join(room);
 
                 // track users per room
-                this.emit("new-user", connection, room);
+                this.emit(EVENTS.USER_JOINED, connection, room);
 
                 // set up the client version for this socket
                 // each connection has a backup and a shadow
@@ -282,3 +289,4 @@ class SyncService extends EventEmitter {
 
 
 module.exports = SyncService;
+module.exports.EVENTS = EVENTS;
