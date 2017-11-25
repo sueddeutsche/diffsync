@@ -110,11 +110,6 @@ class Server {
                     clientDoc.edits = [];
                 }
 
-                // if there are no edits, abort
-                if (editMessage.edits.length === 0) {
-                    return;
-                }
-
                 // 1) iterate over all edits
                 editMessage.edits.forEach((edit) => {
                     // 2) check the version numbers
@@ -148,15 +143,20 @@ class Server {
                     }
                 });
 
-                // notify all sockets about the update, if not empty
-                this.transport.to(editMessage.room).emit(COMMANDS.remoteUpdateIncoming, connection.id);
-                this.sendServerChanges(doc, clientDoc, sendToClient);
-
                 // 4) save a snapshot of the document
-                return this.saveSnapshot(editMessage.room)
+                this.saveSnapshot(editMessage.room); // async
+
+                // if there are no edits
+                if (editMessage.edits.length > 0) {
+                    // notify all sockets about the update, if not empty
+                    this.transport.to(editMessage.room).emit(COMMANDS.remoteUpdateIncoming, connection.id);
+                }
+
+                this.sendServerChanges(doc, clientDoc, sendToClient); // async
             },
             (error) => {
                 connection.emit(COMMANDS.error, "Need to re-connect!");
+                console.log(`Failed applying update: ${error.message}`);
             });
     }
 
