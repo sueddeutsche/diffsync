@@ -8,7 +8,7 @@ const methodsToBind = [
 ];
 
 
-class Client extends EventEmitter {
+class SyncService extends EventEmitter {
 
     constructor(socket, room = "", diffOptions = {}) {
         super();
@@ -268,4 +268,5 @@ class Client extends EventEmitter {
     }
 }
 
-module.exports = Client;
+
+module.exports = SyncService;

@@ -3,14 +3,14 @@ const assert = require("assert");
 const sinon = require("sinon");
 const isEmpty = require("lodash.isempty");
 const jsondiffpatch = require("../../lib/diffpatch").create();
+const SyncService = require("../../client/SyncService");
 
 const COMMANDS = require("../../index").COMMANDS;
-const Client = require("../../index").Client;
 
-describe("DiffSync Client", () => {
+describe("client SyncService", () => {
 
     function testClient() {
-        return new Client({
+        return new SyncService({
             emit: Function.prototype,
             on: Function.prototype,
             id: "1"
@@ -24,7 +24,7 @@ describe("DiffSync Client", () => {
     describe("constructor", () => {
 
         it("should throw if no socket passed", () => {
-            assert.throws(() => new Client(), Error);
+            assert.throws(() => new SyncService(), Error);
             assert.doesNotThrow(() => testClient());
         });
 
@@ -34,7 +34,7 @@ describe("DiffSync Client", () => {
         });
 
         it("should apply the correct options to jsondiffpatch", () => {
-            const client = new Client({}, 1, {
+            const client = new SyncService({}, 1, {
                 textDiff: {
                     minLength: 2
                 }
