@@ -1,12 +1,11 @@
 const isEmpty = require("lodash.isempty");
-const Users = require("./Users");
 const EventEmitter = require("events").EventEmitter;
 const jsondiffpatch = require("../lib/diffpatch");
 const COMMANDS = require("../lib/commands");
 const deepCopy = require("../lib/deepCopy");
 
 
-class Server extends EventEmitter {
+class SyncService extends EventEmitter {
 
     constructor(adapter, transport, diffOptions = {}) {
         if (adapter == null || transport == null) {
@@ -21,8 +20,6 @@ class Server extends EventEmitter {
         this.requests = {};
         this.saveRequests = {};
         this.saveQueue = {};
-
-        Users.init(transport);
 
         // bind functions
         this.trackConnection = this.trackConnection.bind(this);
@@ -146,16 +143,16 @@ class Server extends EventEmitter {
                     }
                 });
 
-                // 4) save a snapshot of the document
+                // 4) save a snapshot of the document (sends data to adapter)
                 this.saveSnapshot(editMessage.room); // async
 
-                // if there are no edits
+                // notify all sockets about the update, if not empty
                 if (editMessage.edits.length > 0) {
-                    // notify all sockets about the update, if not empty
                     this.transport.to(editMessage.room).emit(COMMANDS.remoteUpdateIncoming, connection.id);
                 }
 
-                this.sendServerChanges(doc, clientDoc, sendToClient); // async
+                // send possible patches back to client
+                this.sendServerChanges(doc, clientDoc, sendToClient);
             },
             (error) => {
                 connection.emit(COMMANDS.error, "Need to re-connect!");
@@ -221,7 +218,7 @@ class Server extends EventEmitter {
                 connection.join(room);
 
                 // track users per room
-                Users.addUser(connection, room);
+                this.emit("new-user", connection, room);
 
                 // set up the client version for this socket
                 // each connection has a backup and a shadow
@@ -245,7 +242,7 @@ class Server extends EventEmitter {
             .catch((error) => {
                 console.log("Failed retrieving data");
                 throw error;
-            })
+            });
     }
 
     /**
@@ -284,4 +281,4 @@ class Server extends EventEmitter {
 }
 
 
-module.exports = Server;
+module.exports = SyncService;

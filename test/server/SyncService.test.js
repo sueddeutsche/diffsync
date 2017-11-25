@@ -3,15 +3,15 @@ const assert = require("assert");
 const sinon = require("sinon");
 const isArray = require("lodash.isarray");
 const isObject = require("lodash.isobject");
-const jsondiffpatch = require("../lib/diffpatch").create();
+const jsondiffpatch = require("../../lib/diffpatch").create();
 
 const EventEmitter = require("events").EventEmitter;
-const COMMANDS = require("../index").COMMANDS;
-const Server = require("../index").Server;
-const Adapter = require("../index").InMemoryDataAdapter;
+const COMMANDS = require("../../index").COMMANDS;
+const SyncService = require("../../server/SyncService");
+const Adapter = require("../../index").InMemoryDataAdapter;
 
 
-describe("DiffSync Server", () => {
+describe("server SyncService", () => {
 
     const testRoom = "testRoom";
     function testTransport() {
@@ -44,19 +44,19 @@ describe("DiffSync Server", () => {
     }
 
     function testServer() {
-        return new Server(testAdapter(), testTransport());
+        return new SyncService(testAdapter(), testTransport());
     }
 
     describe("constructor", () => {
 
         it("should throw if no adapter or transport is passed", () => {
-            assert.throws(() => new Server());
-            assert.throws(() => new Server(testAdapter()));
-            assert.doesNotThrow(() => new Server(testAdapter(), testTransport()));
+            assert.throws(() => new SyncService());
+            assert.throws(() => new SyncService(testAdapter()));
+            assert.doesNotThrow(() => new SyncService(testAdapter(), testTransport()));
         });
 
         it("should apply the correct options to jsondiffpatch", () => {
-            const client = new Server(testAdapter(), testTransport(), {
+            const client = new SyncService(testAdapter(), testTransport(), {
                 textDiff: {
                     minLength: 2
                 }
@@ -114,12 +114,11 @@ describe("DiffSync Server", () => {
                 .then((response) => {
                     assert.deepEqual(data, response);
                     assert(!adapterSpy.called, "it should not call the adapter");
-                })
+                });
         });
 
         it("should go to adapter if cache is empty", () => {
             const data = { test: true };
-            const spy = sinon.spy();
             const adapterSpy = sinon.spy(server.adapter, "getData");
 
             server.adapter.cache[testRoom] = data;

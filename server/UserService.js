@@ -1,7 +1,7 @@
 const COMMANDS = require("../lib/commands");
 
 
-const Users = {
+const UserService = {
 
     users: {},
 
@@ -14,7 +14,7 @@ const Users = {
     getUsers(room) {
         if (room) {
             if (this.users[room]) {
-                return this.users[room]
+                return this.users[room];
             }
             return false;
         }
@@ -29,18 +29,17 @@ const Users = {
 
         // user disconnected
         connection.on("disconnect", () => {
-            this.users[room] = this.users[room].filter((user) => user.id !== connection.id);
-            // console.log(`User disconnected from room ${room}`, this.users[room]);
+            this.users[room] = this.users[room].filter((registeredUser) => registeredUser.id !== connection.id);
             this.transport.to(room).emit(COMMANDS.updateUsers, this.users[room]);
         });
 
         // request: update user meta data
         connection.on(COMMANDS.updateUserData, (roomId, meta) => {
-            const user = this.getUser(roomId, meta.id);
-            if (user) {
+            const currentUser = this.getUser(roomId, meta.id);
+            if (currentUser) {
                 // console.log("Update user meta and notify");
                 // @todo allow removal of properties
-                Object.assign(user, meta);
+                Object.assign(currentUser, meta);
                 this.transport.to(room).emit(COMMANDS.updateUsers, this.users[room]);
             }
         });
@@ -53,16 +52,16 @@ const Users = {
         const users = this.users[room];
         if (users == null || users.length === 0) {
             console.log(`There is no user ${id} in room ${room}`);
-            return;
+            return false;
         }
         for (let i = 0; i < users.length; i += 1) {
             if (users[i].id === id) {
                 return users[i];
             }
         }
-        return;
+        return false;
     }
-}
+};
 
 
-module.exports = Users;
+module.exports = UserService;

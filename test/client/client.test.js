@@ -2,10 +2,10 @@
 const assert = require("assert");
 const sinon = require("sinon");
 const isEmpty = require("lodash.isempty");
-const jsondiffpatch = require("../lib/diffpatch").create();
+const jsondiffpatch = require("../../lib/diffpatch").create();
 
-const COMMANDS = require("../index").COMMANDS;
-const Client = require("../index").Client;
+const COMMANDS = require("../../index").COMMANDS;
+const Client = require("../../index").Client;
 
 describe("DiffSync Client", () => {
 
