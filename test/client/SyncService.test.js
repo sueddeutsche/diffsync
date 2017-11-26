@@ -40,7 +40,7 @@ describe("client SyncService", () => {
                 }
             });
 
-            assert(client.jsondiffpatch.options().textDiff.minLength === 2);
+            assert(client.jsondiffpatch.options.textDiff.minLength === 2);
         });
     });
 

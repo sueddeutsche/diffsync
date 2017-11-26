@@ -60,7 +60,7 @@ describe("server SyncService", () => {
                 }
             });
 
-            assert(client.jsondiffpatch.options().textDiff.minLength === 2);
+            assert(client.jsondiffpatch.options.textDiff.minLength === 2);
         });
     });
 
@@ -79,8 +79,8 @@ describe("server SyncService", () => {
             const syncSpy = sinon.stub(service, "receiveEdit").callsFake(Function.prototype);
             const testEdit = {};
             const testCb = Function.prototype;
-
             server.transport.emit("connection", connection);
+
             connection.emit(COMMANDS.join, testRoom, testCb);
 
             assert(joinSpy.called);
@@ -130,7 +130,7 @@ describe("server SyncService", () => {
         });
 
         it("should not ask the adapter for the same data twice", () => {
-            const adapterSpy = sinon.stub(server.adapter, "getData").callsFake((id) => Promise.resolve());
+            const adapterSpy = sinon.stub(server.adapter, "getData").callsFake(() => Promise.resolve());
 
             return Promise.all(
                 [
@@ -146,7 +146,7 @@ describe("server SyncService", () => {
             server.adapter.cache[testRoom] = data;
 
             return server.getData(testRoom)
-                .then((response) => {
+                .then(() => {
                     assert(isArray(server.data[testRoom].registeredSockets), "correct data in `serverCopy`");
                     assert(isObject(server.data[testRoom].clientVersions), "correct data in `clientVersions`");
                     assert(isObject(server.data[testRoom].serverCopy), "correct data in `serverCopy`");
@@ -176,7 +176,7 @@ describe("server SyncService", () => {
         it("returns the correct data to the client", (done) => {
             const data = testData({ awesome: true });
 
-            sinon.stub(server, "getData").callsFake((room) => Promise.resolve(data));
+            sinon.stub(server, "getData").callsFake(() => Promise.resolve(data));
 
             return server.joinConnection(connection, testRoom, (_data) => {
                 assert.deepEqual(data.serverCopy, _data);
