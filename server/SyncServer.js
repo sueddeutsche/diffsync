@@ -35,11 +35,9 @@ class SyncServer {
 
         // user joined successfully to syncservice
         syncService.on(SyncService.EVENTS.USER_JOINED, (userConnection, room) => {
-            console.log(`User ${userConnection.id} connected`);
             userService.addUser(userConnection, room);
 
             userConnection.on("disconnect", () => {
-                console.log(`User ${userConnection.id} disconnected`);
                 userService.removeUser(userConnection, room);
             });
 
