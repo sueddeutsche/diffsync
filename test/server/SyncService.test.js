@@ -7,6 +7,7 @@ const jsondiffpatch = require("../../lib/diffpatch").create();
 
 const EventEmitter = require("events").EventEmitter;
 const COMMANDS = require("../../index").COMMANDS;
+const SyncServer = require("../../server/SyncServer");
 const SyncService = require("../../server/SyncService");
 const Adapter = require("../../index").InMemoryDataAdapter;
 
@@ -15,13 +16,11 @@ describe("server SyncService", () => {
 
     const testRoom = "testRoom";
     function testTransport() {
-        return {
-            id: `${Math.random()}`,
-            on: Function.prototype,
-            emit: Function.prototype,
-            join: Function.prototype,
-            to: () => new EventEmitter()
-        };
+        const transport = new EventEmitter();
+        transport.id = `${Math.random()}`;
+        transport.join = Function.prototype;
+        transport.to = () => new EventEmitter();
+        return transport;
     }
 
     function testData(data) {
@@ -44,19 +43,18 @@ describe("server SyncService", () => {
     }
 
     function testServer() {
-        return new SyncService(testAdapter(), testTransport());
+        return new SyncService(testAdapter());
     }
 
     describe("constructor", () => {
 
-        it("should throw if no adapter or transport is passed", () => {
+        it("should throw if no adapter is passed", () => {
             assert.throws(() => new SyncService());
-            assert.throws(() => new SyncService(testAdapter()));
-            assert.doesNotThrow(() => new SyncService(testAdapter(), testTransport()));
+            assert.doesNotThrow(() => new SyncService(testAdapter()));
         });
 
         it("should apply the correct options to jsondiffpatch", () => {
-            const client = new SyncService(testAdapter(), testTransport(), {
+            const client = new SyncService(testAdapter(), {
                 textDiff: {
                     minLength: 2
                 }
@@ -66,7 +64,7 @@ describe("server SyncService", () => {
         });
     });
 
-    describe("trackConnection", () => {
+    describe("SyncServer", () => {
 
         let connection;
 
@@ -75,25 +73,25 @@ describe("server SyncService", () => {
         });
 
         it("should bind the callbacks properly", () => {
-            const server = testServer();
-            const joinSpy = sinon.stub(server, "joinConnection").callsFake(Function.prototype);
-            const syncSpy = sinon.stub(server, "receiveEdit").callsFake(Function.prototype);
+            const server = new SyncServer(testTransport(), testAdapter());
+            const service = server.syncService;
+            const joinSpy = sinon.stub(service, "joinConnection").callsFake(Function.prototype);
+            const syncSpy = sinon.stub(service, "receiveEdit").callsFake(Function.prototype);
             const testEdit = {};
             const testCb = Function.prototype;
 
-            server.trackConnection(connection);
-
+            server.transport.emit("connection", connection);
             connection.emit(COMMANDS.join, testRoom, testCb);
 
             assert(joinSpy.called);
             assert(joinSpy.calledWithExactly(connection, testRoom, testCb));
-            assert(joinSpy.calledOn(server));
+            assert(joinSpy.calledOn(service));
 
             connection.emit(COMMANDS.syncWithServer, testEdit, testCb);
 
             assert(syncSpy.called);
             assert(syncSpy.calledWithExactly(connection, testEdit, testCb));
-            assert(syncSpy.calledOn(server));
+            assert(syncSpy.calledOn(service));
         });
     });
 
@@ -217,11 +215,13 @@ describe("server SyncService", () => {
     describe("receiveEdit", () => {
 
         let server;
+        let service;
         let connection;
         let editMessage;
 
         beforeEach(() => {
-            server = testServer();
+            server = new SyncServer(testTransport(), testAdapter());
+            service = server.syncService;
             connection = testTransport();
             editMessage = {
                 room: testRoom,
@@ -242,13 +242,13 @@ describe("server SyncService", () => {
         });
 
         function join() {
-            return new Promise((resolve) => server.joinConnection(connection, testRoom, resolve));
+            return new Promise((resolve) => service.joinConnection(connection, testRoom, resolve));
         }
 
         it("gets data from the correct room", () => {
-            const getDataSpy = sinon.stub(server, "getData").callsFake(() => Promise.resolve({ clientVersions: {} }));
+            const getDataSpy = sinon.stub(service, "getData").callsFake(() => Promise.resolve({ clientVersions: {} }));
 
-            server
+            return service
                 .receiveEdit(connection, editMessage, Function.prototype)
                 .then(() => {
                     assert(getDataSpy.called);
@@ -259,7 +259,7 @@ describe("server SyncService", () => {
         it("emits an error if it does not find a document for this client", () => {
             const emitSpy = sinon.spy(connection, "emit");
 
-            server.receiveEdit(connection, editMessage, Function.prototype)
+            service.receiveEdit(connection, editMessage, Function.prototype)
                 .then(() => {
                     assert(emitSpy.called);
                     assert(emitSpy.calledWith(COMMANDS.error));
@@ -267,24 +267,24 @@ describe("server SyncService", () => {
         });
 
         it("should perform a half server-side sync cycle", () => {
-            const saveSnapshotSpy = sinon.spy(server, "saveSnapshot");
-            const sendServerChangesSpy = sinon.stub(server, "sendServerChanges").callsFake(Function.prototype);
+            const saveSnapshotSpy = sinon.spy(service, "saveSnapshot");
+            const sendServerChangesSpy = sinon.stub(service, "sendServerChanges").callsFake(Function.prototype);
             const emitter = new EventEmitter();
             const emitterSpy = sinon.spy(emitter, "emit");
             const toRoomSpy = sinon.stub(server.transport, "to").callsFake(() => emitter);
             const initialLocalVersion = 0;
 
-            join()
-                .then(() => server.receiveEdit(connection, editMessage, Function.prototype))
+            return join()
+                .then(() => service.receiveEdit(connection, editMessage, Function.prototype))
                 .then(() => {
-                    const serverDoc = server.data[testRoom];
+                    const serverDoc = service.data[testRoom];
                     const clientDoc = serverDoc.clientVersions[connection.id];
 
                     // the shadow and the backup have to be different after that change
                     assert.notDeepEqual(clientDoc.shadow.doc, clientDoc.backup.doc);
                     assert.notDeepEqual(clientDoc.shadow.doc.testArray[0], clientDoc.backup.doc.testArray[0]);
 
-                    // the server testArray[0] and the shadow version should be the same by value and not by reference
+                    // the service testArray[0] and the shadow version should be the same by value and not by reference
                     assert.deepEqual(clientDoc.shadow.doc.testArray[0], serverDoc.serverCopy.testArray[0]);
                     assert.notStrictEqual(clientDoc.shadow.doc.testArray[0], serverDoc.serverCopy.testArray[0]);
 
@@ -307,8 +307,8 @@ describe("server SyncService", () => {
             // empty message
             editMessage.edits = [];
 
-            join()
-                .then(() => server.receiveEdit(connection, editMessage, Function.prototype))
+            return join()
+                .then(() => service.receiveEdit(connection, editMessage, Function.prototype))
                 .then(() => {
                     assert(!emitterSpy.called);
                 });
@@ -322,7 +322,7 @@ describe("server SyncService", () => {
             const server = testServer();
             const storeDataSpy = sinon.spy(server.adapter, "storeData");
 
-            server
+            return server
                 .saveSnapshot(testRoom)
                 .then(() => {
                     assert(storeDataSpy.called);

@@ -1,51 +1,32 @@
 const isEmpty = require("lodash.isempty");
 const EventEmitter = require("events").EventEmitter;
 const jsondiffpatch = require("../lib/diffpatch");
-const COMMANDS = require("../lib/commands");
 const deepCopy = require("../lib/deepCopy");
 
 
 const EVENTS = {
     USER_JOINED: "user:joined",
-    USER_EDIT: "user:edit"
+    SERVER_SYNC: "server:sync",
+    ERROR_INVALID_CONNECTION: "error:invalid-connection"
 };
 
 
 class SyncService extends EventEmitter {
 
-    constructor(adapter, transport, diffOptions = {}) {
-        if (adapter == null || transport == null) {
+    constructor(adapter, diffOptions = {}) {
+        if (adapter == null) {
             throw new Error("Need to specify an adapter and a transport");
         }
 
         super();
 
         this.adapter = adapter;
-        this.transport = transport;
         this.data = {};
         this.requests = {};
         this.saveRequests = {};
         this.saveQueue = {};
 
-        // bind functions
-        this.trackConnection = this.trackConnection.bind(this);
-
         this.jsondiffpatch = jsondiffpatch.create(diffOptions);
-        this.transport.on("connection", this.trackConnection);
-    }
-
-
-    /**
-     * Registers the correct event listeners on the client connection
-     * @param  {Socket} connection  - The connection that should get tracked
-     */
-    trackConnection(connection) {
-        connection.on(COMMANDS.join, (room, initializeClient) =>
-            this.joinConnection(connection, room, initializeClient)
-        );
-        connection.on(COMMANDS.syncWithServer, (editMessage, sendClient) =>
-            this.receiveEdit(connection, editMessage, sendClient)
-        );
     }
 
     /**
@@ -107,7 +88,7 @@ class SyncService extends EventEmitter {
 
                 // no client doc could be found, client needs to re-auth
                 if (!clientDoc) {
-                    connection.emit(COMMANDS.error, "Need to re-connect!");
+                    this.emit(EVENTS.ERROR_INVALID_CONNECTION, connection, editMessage.room);
                     return;
                 }
 
@@ -154,15 +135,15 @@ class SyncService extends EventEmitter {
 
                 // notify all sockets about the update, if not empty
                 if (editMessage.edits.length > 0) {
-                    this.transport.to(editMessage.room).emit(COMMANDS.remoteUpdateIncoming, connection.id);
+                    // sends a request to each client, to perform a sync request to the server
+                    this.emit(EVENTS.SERVER_SYNC, connection, editMessage.room);
                 }
 
                 // send possible patches back to client
                 this.sendServerChanges(doc, clientDoc, sendToClient);
-                this.emit(EVENTS.USER_EDIT, connection, editMessage.room);
             },
             (error) => {
-                connection.emit(COMMANDS.error, "Need to re-connect!");
+                this.emit(EVENTS.ERROR_INVALID_CONNECTION, connection, editMessage.room);
                 console.log(`Failed applying update: ${error.message}`);
             });
     }
@@ -178,7 +159,7 @@ class SyncService extends EventEmitter {
 
         // only start save if no save going on at the moment
         if (this.saveRequests[room] instanceof Promise) {
-            // schedule a new save request, when after the current job is finished
+            // schedule a new save request to the current job
             if (!this.saveQueue[room]) {
                 this.saveQueue[room] = this.saveRequests[room].then(() => this.saveSnapshot(room));
             }
@@ -224,9 +205,6 @@ class SyncService extends EventEmitter {
                 // connect to the room
                 connection.join(room);
 
-                // track users per room
-                this.emit(EVENTS.USER_JOINED, connection, room);
-
                 // set up the client version for this socket
                 // each connection has a backup and a shadow
                 // and a set of edits
@@ -245,6 +223,9 @@ class SyncService extends EventEmitter {
 
                 // send the current server version
                 initializeClient(data.serverCopy);
+
+                // track users per room
+                this.emit(EVENTS.USER_JOINED, connection, room);
             })
             .catch((error) => {
                 console.log("Failed retrieving data");
