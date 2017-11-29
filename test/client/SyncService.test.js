@@ -2,15 +2,15 @@
 const assert = require("assert");
 const sinon = require("sinon");
 const isEmpty = require("lodash.isempty");
-const jsondiffpatch = require("../src/diffpatch").create();
+const jsondiffpatch = require("../../lib/diffpatch").create();
+const SyncService = require("../../client/SyncService");
 
-const COMMANDS = require("../index").COMMANDS;
-const Client = require("../index").Client;
+const COMMANDS = require("../../index").COMMANDS;
 
-describe("DiffSync Client", () => {
+describe("client SyncService", () => {
 
     function testClient() {
-        return new Client({
+        return new SyncService({
             emit: Function.prototype,
             on: Function.prototype,
             id: "1"
@@ -24,7 +24,7 @@ describe("DiffSync Client", () => {
     describe("constructor", () => {
 
         it("should throw if no socket passed", () => {
-            assert.throws(() => new Client(), Error);
+            assert.throws(() => new SyncService(), Error);
             assert.doesNotThrow(() => testClient());
         });
 
@@ -34,13 +34,13 @@ describe("DiffSync Client", () => {
         });
 
         it("should apply the correct options to jsondiffpatch", () => {
-            const client = new Client({}, 1, {
+            const client = new SyncService({}, 1, {
                 textDiff: {
                     minLength: 2
                 }
             });
 
-            assert(client.jsondiffpatch.options().textDiff.minLength === 2);
+            assert(client.jsondiffpatch.options.textDiff.minLength === 2);
         });
     });
 
@@ -63,7 +63,7 @@ describe("DiffSync Client", () => {
         beforeEach(() => (client = testClient()));
 
         it("should not schedule if update comes from the same client", () => {
-            const scheduleSpy = sinon.stub(client, "schedule", Function.prototype);
+            const scheduleSpy = sinon.stub(client, "schedule").callsFake(Function.prototype);
 
             // 1 is the id of the local client
             client.onRemoteUpdate("1");
@@ -72,7 +72,7 @@ describe("DiffSync Client", () => {
         });
 
         it("should schedule if update comes from another client", () => {
-            const scheduleSpy = sinon.stub(client, "schedule", Function.prototype);
+            const scheduleSpy = sinon.stub(client, "schedule").callsFake(Function.prototype);
 
             client.onRemoteUpdate("2");
 

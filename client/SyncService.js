@@ -1,14 +1,14 @@
 const isEmpty = require("lodash.isempty");
 const EventEmitter = require("events").EventEmitter;
-const jsondiffpatch = require("./diffpatch");
-const COMMANDS = require("./commands");
-const deepCopy = require("./deepCopy");
+const jsondiffpatch = require("../lib/diffpatch");
+const COMMANDS = require("../lib/commands");
+const deepCopy = require("../lib/deepCopy");
 const methodsToBind = [
     "_onConnected", "syncWithServer", "applyServerEdit", "applyServerEdits", "schedule", "onRemoteUpdate"
 ];
 
 
-class Client extends EventEmitter {
+class SyncService extends EventEmitter {
 
     constructor(socket, room = "", diffOptions = {}) {
         super();
@@ -268,4 +268,5 @@ class Client extends EventEmitter {
     }
 }
 
-module.exports = Client;
+
+module.exports = SyncService;
