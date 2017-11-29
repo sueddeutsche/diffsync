@@ -1,4 +1,4 @@
-# diffsync [![Build Status](https://travis-ci.org/janmonschke/diffsync.svg?branch=master)](https://travis-ci.org/janmonschke/diffsync) [![slack backdge](https://diffsync-slack.herokuapp.com/badge.svg)](https://diffsync-slack.herokuapp.com/)
+# json-sync
 
 Enables real-time collaborative editing of arbitrary JSON objects
 
@@ -122,7 +122,7 @@ Setting up the server in a very minimal way (with express):
   var dataAdapter = new diffSync.InMemoryDataAdapter();
 
   // setting up the diffsync server
-  var diffSyncServer = new DiffSync.Server(dataAdapter, io);
+  var diffSyncServer = new DiffSync.Server(io, dataAdapter);
 
   // starting the http server
   http.listen(4000, function(){
