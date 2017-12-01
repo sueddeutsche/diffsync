@@ -81,7 +81,7 @@ describe("server SyncService", () => {
             const testCb = Function.prototype;
             server.transport.emit("connection", connection);
 
-            connection.emit(COMMANDS.join, testRoom, testCb);
+            connection.emit(COMMANDS.join, "credentials", testRoom, testCb);
 
             assert(joinSpy.called);
             assert(joinSpy.calledWithExactly(connection, testRoom, testCb));

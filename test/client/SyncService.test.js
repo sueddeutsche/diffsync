@@ -3,18 +3,22 @@ const assert = require("assert");
 const sinon = require("sinon");
 const isEmpty = require("lodash.isempty");
 const jsondiffpatch = require("../../lib/diffpatch").create();
+const Client = require("../../client");
 const SyncService = require("../../client/SyncService");
-
+const EventEmitter = require("events").EventEmitter;
 const COMMANDS = require("../../index").COMMANDS;
+
 
 describe("client SyncService", () => {
 
-    function testClient() {
-        return new SyncService({
-            emit: Function.prototype,
-            on: Function.prototype,
-            id: "1"
-        }, "testroom");
+    function testService(room = "testroom") {
+        return new SyncService(room);
+    }
+
+    function testClient(room = "testroom", id = "1") {
+        const socket = new EventEmitter();
+        socket.id = id;
+        return new Client(socket, room);
     }
 
     function testData() {
@@ -24,7 +28,7 @@ describe("client SyncService", () => {
     describe("constructor", () => {
 
         it("should throw if no socket passed", () => {
-            assert.throws(() => new SyncService(), Error);
+            assert.throws(() => new Client(), Error);
             assert.doesNotThrow(() => testClient());
         });
 
@@ -34,47 +38,55 @@ describe("client SyncService", () => {
         });
 
         it("should apply the correct options to jsondiffpatch", () => {
-            const client = new SyncService({}, 1, {
+            const service = new SyncService(1, {
                 textDiff: {
                     minLength: 2
                 }
             });
 
-            assert(client.jsondiffpatch.options.textDiff.minLength === 2);
+            assert(service.jsondiffpatch.options.textDiff.minLength === 2);
         });
     });
 
-    describe("initialize", () => {
+    describe("join", () => {
 
         it("should connect to the correct room", () => {
             const c = testClient();
             const spy = sinon.spy(c.socket, "emit");
 
-            c.initialize();
+            c.join();
 
             assert(spy.called);
-            assert(spy.calledWith(COMMANDS.join, c.room));
+            assert(spy.calledWith(COMMANDS.join, "", c.room));
         });
     });
 
     describe("onRemoteUpdate", () => {
 
         let client;
-        beforeEach(() => (client = testClient()));
+        let service;
+        beforeEach(() => {
+            client = testClient();
+            service = client.syncService;
+        });
 
         it("should not schedule if update comes from the same client", () => {
-            const scheduleSpy = sinon.stub(client, "schedule").callsFake(Function.prototype);
+            const scheduleSpy = sinon.stub(service, "schedule").callsFake(Function.prototype);
+            client.socket.on(COMMANDS.join, (credentials, room, initialize) => initialize({}));
+            client.join();
 
-            // 1 is the id of the local client
-            client.onRemoteUpdate("1");
+            // 1 is the id of the local service
+            client.socket.emit(COMMANDS.remoteUpdateIncoming, "1");
 
             assert(!scheduleSpy.called);
         });
 
-        it("should schedule if update comes from another client", () => {
-            const scheduleSpy = sinon.stub(client, "schedule").callsFake(Function.prototype);
+        it("should schedule if update comes from another service", () => {
+            const scheduleSpy = sinon.stub(service, "schedule").callsFake(Function.prototype);
+            client.socket.on(COMMANDS.join, (credentials, room, initialize) => initialize({}));
+            client.join();
 
-            client.onRemoteUpdate("2");
+            client.socket.emit(COMMANDS.remoteUpdateIncoming, "2");
 
             assert(scheduleSpy.called);
         });
@@ -83,55 +95,62 @@ describe("client SyncService", () => {
     describe("getData", () => {
 
         it("should return the correct object", () => {
-            const client = testClient();
+            const client = testService();
 
             assert.deepEqual(client.doc.localCopy, client.getData());
             assert.strictEqual(client.doc.localCopy, client.getData());
         });
     });
 
-    describe("_onConnected", () => {
+    describe("initialize", () => {
 
         let client;
-        beforeEach(() => (client = testClient()));
+        let service;
+        beforeEach(() => {
+            client = testClient();
+            service = client.syncService;
+        });
 
         it("should set the model in initialized state", () => {
-            assert(!client.initialized);
-            client._onConnected({});
-            assert(client.initialized);
+            assert(!service.initialized);
+            service.initialize({});
+            assert(service.initialized);
         });
 
         it("should release the sync cycle", () => {
-            client.initialize();
-            assert(client.syncing);
-            client._onConnected({});
-            assert(!client.syncing);
+            client.join();
+            assert(service.syncing);
+            service.initialize({});
+            assert(!service.syncing);
         });
 
         it("should subscribe to server sync requests", () => {
+            client.socket.on(COMMANDS.join, (credentials, room, initialize) => initialize({}));
             const spy = sinon.spy(client.socket, "on");
 
-            client._onConnected({});
-            assert(spy.calledWith(COMMANDS.remoteUpdateIncoming, client.onRemoteUpdate));
+            client.join();
+
+            assert(spy.calledWith(COMMANDS.remoteUpdateIncoming));
         });
 
         it("should set the shadow and the local copy correctly", () => {
-            client._onConnected({
+            service.initialize({
                 test: true,
                 arr: [{
                     a: 1
                 }]
             });
-            assert.deepEqual(client.doc.localCopy, client.doc.shadow, "both versions should be identical by value");
-            assert.notStrictEqual(client.doc.localCopy, client.doc.shadow, "they shouldnt be the same reference");
+            assert.deepEqual(service.doc.localCopy, service.doc.shadow, "both versions should be identical by value");
+            assert.notStrictEqual(service.doc.localCopy, service.doc.shadow, "they shouldnt be the same reference");
         });
 
         it("should emit the `connected` event", () => {
             const emitSpy = sinon.spy(client, "emit");
             const listenerSpy = sinon.spy();
+            client.socket.on(COMMANDS.join, (credentials, room, initialize) => initialize({}));
+            client.on(Client.EVENTS.CONNECTED, listenerSpy);
 
-            client.on("connected", listenerSpy);
-            client._onConnected({});
+            client.join();
 
             assert(emitSpy.calledOnce);
             assert(listenerSpy.calledOnce);
@@ -142,7 +161,7 @@ describe("client SyncService", () => {
 
         let client;
         beforeEach(() => {
-            client = testClient();
+            client = testService();
         });
 
         it("should schedule a sync", () => {
@@ -167,7 +186,7 @@ describe("client SyncService", () => {
             const b = {
                 test: true
             };
-            const diff = testClient().createDiff(a, b);
+            const diff = testService().createDiff(a, b);
 
             assert(isEmpty(diff));
         });
@@ -180,7 +199,7 @@ describe("client SyncService", () => {
             const b = {
                 test: true
             };
-            const diff = testClient().createDiff(a, b);
+            const diff = testService().createDiff(a, b);
 
             assert(!isEmpty(diff));
         });
@@ -189,7 +208,7 @@ describe("client SyncService", () => {
     describe("createDiffMessage", () => {
 
         it("should create a valid diff object", () => {
-            const client = testClient();
+            const client = testService();
             const serverVersion = client.doc.serverVersion;
             const diff = {};
             const baseVersion = 1;
@@ -205,7 +224,7 @@ describe("client SyncService", () => {
     describe("createEditMessage", () => {
 
         it("should create a valid edit message", () => {
-            const client = testClient();
+            const client = testService();
             const baseVersion = 1;
             const editMessage = client.createEditMessage(baseVersion);
 
@@ -221,8 +240,8 @@ describe("client SyncService", () => {
         let data;
         beforeEach(() => {
             data = testData();
-            client = testClient();
-            client._onConnected(data);
+            client = testService();
+            client.initialize(data);
         });
 
         function changeLocalDoc() {
@@ -258,7 +277,7 @@ describe("client SyncService", () => {
             const createDiffMessage = sinon.spy(client, "createDiffMessage");
             const createEditMessage = sinon.spy(client, "createEditMessage");
             const applyPatchTo = sinon.spy(client, "applyPatchTo");
-            const sendEdits = sinon.spy(client, "sendEdits");
+            const sendEdits = sinon.spy(client, "emit");
             const localVersionBeforeChange = client.doc.localVersion;
 
             // assert correct version
@@ -289,46 +308,50 @@ describe("client SyncService", () => {
 
             // send the edits to the server
             assert(sendEdits.calledAfter(applyPatchTo), "calls sendEdits after applyPatchTo");
+            assert(sendEdits.calledWith("sync:edits"), "should have been called with sync command");
 
             // assert correctly updated local version number
             assert.equal(client.doc.localVersion, 1, "updated version number is 1");
         });
     });
 
+
     describe("applyServerEdits", () => {
         let client;
+        let service;
         beforeEach(() => {
             client = testClient();
-            client.on("error", Function.prototype);
+            service = client.syncService;
+            service.on("error", Function.prototype);
         });
 
         it("resets the syncing flag", () => {
-            client.syncing = true;
-            client.applyServerEdits();
+            service.syncing = true;
+            service.applyServerEdits();
 
-            assert(!client.syncing);
+            assert(!service.syncing);
         });
 
         it("inits a new sync cycle only if scheduled flag is set", () => {
-            const spy = sinon.spy(client, "syncWithServer");
+            const spy = sinon.spy(service, "syncWithServer");
 
-            client.applyServerEdits();
+            service.applyServerEdits();
 
             assert(!spy.called);
 
-            client.scheduled = true;
-            client.applyServerEdits();
+            service.scheduled = true;
+            service.applyServerEdits();
 
             assert(spy.called);
         });
 
         it("calls error callback if `local` version numbers do not match", () => {
-            const emitSpy = sinon.spy(client, "emit");
+            const emitSpy = sinon.spy(service, "emit");
             const listenerSpy = sinon.spy();
 
-            client.on("error", listenerSpy);
-            client.doc.localVersion = 1;
-            client.applyServerEdits({
+            client.on(Client.EVENTS.ERROR, listenerSpy);
+            service.doc.localVersion = 1;
+            service.applyServerEdits({
                 localVersion: 0
             });
 
@@ -337,15 +360,11 @@ describe("client SyncService", () => {
         });
 
         it("calls `applyServerEdit` for each edit", () => {
-            const spy = sinon.spy(client, "applyServerEdit");
+            const spy = sinon.spy(service, "applyServerEdit");
 
-            client.applyServerEdits({
+            service.applyServerEdits({
                 localVersion: 0,
-                edits: [{
-                    a: 1
-                }, {
-                    b: 1
-                }]
+                edits: [{ a: 1 }, { b: 1 }]
             });
 
             assert(spy.calledTwice);
@@ -353,36 +372,28 @@ describe("client SyncService", () => {
 
         it("resets the local edits list", () => {
             // too lazy to add real diffs here
-            client.applyServerEdit = Function.prototype;
+            service.applyServerEdit = Function.prototype;
 
-            client.doc.edits = [{}];
-            client.applyServerEdits({
+            service.doc.edits = [{}];
+            service.applyServerEdits({
                 localVersion: 0,
-                edits: [{
-                    a: 1
-                }, {
-                    b: 1
-                }]
+                edits: [{ a: 1 }, { b: 1 }]
             });
 
-            assert(client.doc.edits.length === 0);
+            assert(service.doc.edits.length === 0);
         });
 
         it("emits `synced` event after applying all updates", () => {
-            const emitSpy = sinon.spy(client, "emit");
+            const emitSpy = sinon.spy(service, "emit");
             const listenerSpy = sinon.spy();
 
-            client.on("synced", listenerSpy);
-            client.applyServerEdits({
+            client.on(Client.EVENTS.SYNCED, listenerSpy);
+            service.applyServerEdits({
                 localVersion: 0,
-                edits: [{
-                    a: 1
-                }, {
-                    b: 1
-                }]
+                edits: [{ a: 1 }, { b: 1 }]
             });
 
-            assert(emitSpy.calledWithExactly("synced"));
+            assert(emitSpy.calledWithExactly("sync:done"));
             assert(listenerSpy.called);
         });
     });
@@ -395,8 +406,8 @@ describe("client SyncService", () => {
         let emptyDiff;
 
         beforeEach(() => {
-            client = testClient();
-            client._onConnected(testData());
+            client = testService();
+            client.initialize(testData());
             serverData = testData();
             serverData.b[0].c = 2;
             serverData.b.push({

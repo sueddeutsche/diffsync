@@ -1,1 +1,1 @@
-module.exports = require("./SyncService");
+module.exports = require("./SyncClient");

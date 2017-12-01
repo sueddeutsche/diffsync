@@ -4,12 +4,14 @@
   "description": "Real time collaborative editing for JSON objects",
   "main": "index.js",
   "scripts": {
-    "test": "mocha test/**/*.js"
+    "test": "mocha test/**/*.test.js",
+    "coverage": "nyc -a --reporter=cobertura --reporter=html --reporter=text npm run test"
   },
   "dependencies": {
     "diff_match_patch": "^0.1.1",
     "jsondiffpatch": "^0.2.4",
-    "lodash.isempty": "^3.0.2"
+    "lodash.isempty": "^3.0.2",
+    "mitt": "^1.1.2"
   },
   "devDependencies": {
     "eslint": "^3.19.0",

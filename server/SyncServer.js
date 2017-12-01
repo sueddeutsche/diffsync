@@ -5,7 +5,7 @@ const UserService = require("./UserService");
 
 class SyncServer {
 
-    constructor(transport, adapter) {
+    constructor(transport, adapter, auth = () => true) {
         const syncService = new SyncService(adapter);
         const userService = new UserService();
 
@@ -13,25 +13,6 @@ class SyncServer {
         this.adapter = adapter;
         this.syncService = syncService;
         this.userService = userService;
-
-        // new incoming user
-        transport.on("connection", (connection) => {
-
-            // establish connection with syncservice
-            connection.on(COMMANDS.join, (room, initializeClient) =>
-                syncService.joinConnection(connection, room, initializeClient)
-            );
-
-            // perform sync-cycle with server
-            connection.on(COMMANDS.syncWithServer, (editMessage, sendClient) =>
-                syncService.receiveEdit(connection, editMessage, sendClient)
-            );
-
-            // receive ping from client and update timestamp on user meta
-            connection.on(COMMANDS.keepAlive, (room) =>
-                userService.keepAlive(connection, room)
-            );
-        });
 
         // user joined successfully to syncservice
         syncService.on(SyncService.EVENTS.USER_JOINED, (userConnection, room) => {
@@ -58,6 +39,30 @@ class SyncServer {
 
         userService.on(UserService.EVENTS.UPDATE_USERS, (room, users) => {
             transport.to(room).emit(COMMANDS.updateUsers, users);
+        });
+
+        this.transport.on("connection", (connection) => this.joinUser(connection, auth));
+    }
+
+    joinUser(connection, auth) {
+        // establish connection with syncservice
+        connection.on(COMMANDS.join, (credentials, room, initializeClient) => {
+            if (auth(credentials) === false) {
+                connection.emit("error", "not authorized");
+                return;
+            }
+
+            this.syncService.joinConnection(connection, room, initializeClient);
+
+            // perform sync-cycle with server
+            connection.on(COMMANDS.syncWithServer, (editMessage, sendToClient) => {
+                this.syncService.receiveEdit(connection, editMessage, sendToClient);
+            });
+
+            // receive ping from client and update timestamp on user meta
+            connection.on(COMMANDS.keepAlive, (roomId) =>
+                this.userService.keepAlive(connection, roomId)
+            );
         });
     }
 

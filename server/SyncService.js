@@ -199,6 +199,7 @@ class SyncService extends EventEmitter {
         this.getData(room)
             .then((data) => {
                 if (data === false) {
+                    console.log("abort join, data is invalid", connection.id);
                     return;
                 }
 
