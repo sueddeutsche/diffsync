@@ -49,11 +49,20 @@ class SyncClient {
         });
     }
 
+    /**
+     * @async - will not resolve if an error occurs during join-procedure
+     * Join client with server, establishing sync-flow
+     * @param  {Any} [credentials]  - optional credentials dependencing on available auth method on server
+     * @return {Promise} resolves with this instance
+     */
     join(credentials = "") {
-        this.socket.emit(COMMANDS.join, credentials, this.room, (initialVersion) => {
-            this.syncService.initialize(initialVersion);
-            // notify about established connection
-            this.emit(EVENTS.CONNECTED);
+        return new Promise((resolve) => {
+            this.socket.emit(COMMANDS.join, credentials, this.room, (initialVersion) => {
+                this.syncService.initialize(initialVersion);
+                // notify about established connection
+                this.emit(EVENTS.CONNECTED);
+                resolve(this);
+            });
         });
     }
 

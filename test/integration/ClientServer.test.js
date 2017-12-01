@@ -7,7 +7,7 @@ const COMMANDS = require("../../lib/commands");
 const EventEmitter = require("events").EventEmitter;
 
 
-describe.only("client server communication", () => {
+describe("client server communication", () => {
 
     let client;
     let server;
@@ -36,22 +36,16 @@ describe.only("client server communication", () => {
     });
 
 
-    it("client should join with server", (done) => {
+    it("client should join with server", () => {
         const flowSpy = sinon.spy();
         // server listens to this event
         client.socket.on(COMMANDS.join, flowSpy);
         // emitted when server has called the client-cb from join
         client.on(Client.EVENTS.CONNECTED, flowSpy);
 
-
-        client.join();
-
-
-        // join runs async
-        client.on(Client.EVENTS.CONNECTED, () => {
-            assert(flowSpy.calledTwice);
-            done();
-        });
+        return client
+            .join()
+            .then(() => assert(flowSpy.calledTwice));
     });
 
     it("client-server should perform a sync cycle", (done) => {
@@ -63,17 +57,14 @@ describe.only("client server communication", () => {
         // called when server and client have synched their changes
         client.on(Client.EVENTS.SYNCED, flowSpy);
 
-
-        client.on(Client.EVENTS.CONNECTED, (done) => {
-            // make some changes
-            const data = client.getData();
-            data.data = { id: "my-test-data" };
-            // starts test relevant procedure
-            client.sync();
-        });
-
-        client.join();
-
+        client.join()
+            .then(() => {
+                // make some changes
+                const data = client.getData();
+                data.data = { id: "my-test-data" };
+                // starts test relevant procedure
+                client.sync();
+            });
 
         client.on(Client.EVENTS.SYNCED, () => {
             assert(flowSpy.calledThrice);
@@ -111,7 +102,6 @@ describe.only("client server communication", () => {
             assert(flowSpy.callCount === 3);
             done();
         });
-
 
         client.join();
         setTimeout(() => theOtherClient.join()); // currently multiple users can not join within the same tick
