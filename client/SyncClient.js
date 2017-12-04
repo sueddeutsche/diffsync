@@ -1,7 +1,7 @@
 const mitt = require("mitt");
 const SyncService = require("./SyncService");
 const COMMANDS = require("../lib/commands");
-const eventMap = require("../lib/EventMap");
+const eventMap = require("../lib/eventMap");
 
 
 const EVENTS = eventMap({
