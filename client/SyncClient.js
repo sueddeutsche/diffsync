@@ -48,6 +48,10 @@ class SyncClient {
                 syncService.schedule();
             }
         });
+
+        socket.on(COMMANDS.error, (message) => {
+            console.log("Connection Failed", message);
+        });
     }
 
     /**
