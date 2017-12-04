@@ -1,13 +1,14 @@
 const mitt = require("mitt");
 const SyncService = require("./SyncService");
 const COMMANDS = require("../lib/commands");
+const eventMap = require("../lib/EventMap");
 
 
-const EVENTS = {
+const EVENTS = eventMap({
     CONNECTED: "client:connected",
     SYNCED: "client:synced",
     ERROR: "client:error"
-};
+});
 
 
 class SyncClient {

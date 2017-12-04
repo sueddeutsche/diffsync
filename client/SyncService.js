@@ -2,15 +2,16 @@ const mitt = require("mitt");
 const isEmpty = require("lodash.isempty");
 const jsondiffpatch = require("../lib/diffpatch");
 const deepCopy = require("../lib/deepCopy");
+const eventMap = require("../lib/eventMap");
 const methodsToBind = [
     "initialize", "syncWithServer", "applyServerEdit", "applyServerEdits", "schedule"
 ];
 
-const EVENTS = {
+const EVENTS = eventMap({
     SYNCED: "sync:done",
     ERROR: "sync:error",
     SYNC_EDITS: "sync:edits"
-};
+});
 
 
 class ClientSyncService {

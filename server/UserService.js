@@ -1,9 +1,10 @@
 const EventEmitter = require("events").EventEmitter;
+const eventMap = require("../lib/eventMap");
 
 
-const EVENTS = {
+const EVENTS = eventMap({
     UPDATE_USERS: "update_users"
-};
+});
 
 
 class UserService extends EventEmitter {
