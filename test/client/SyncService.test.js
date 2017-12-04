@@ -125,12 +125,11 @@ describe("client SyncService", () => {
         });
 
         it("should subscribe to server sync requests", () => {
-            client.socket.on(COMMANDS.join, (credentials, room, initialize) => initialize({}));
-            const spy = sinon.spy(client.socket, "on");
+            const spy = sinon.spy(client.syncService, "schedule");
 
-            client.join();
+            client.socket.emit(COMMANDS.remoteUpdateIncoming, "2");
 
-            assert(spy.calledWith(COMMANDS.remoteUpdateIncoming));
+            assert(spy.called);
         });
 
         it("should set the shadow and the local copy correctly", () => {
