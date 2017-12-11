@@ -39,3 +39,5 @@ manifest.json
 app/assets/videos
 assetdata
 debug.html
+/coverage
+/.nyc_output

@@ -1,25 +1,25 @@
+const mitt = require("mitt");
 const isEmpty = require("lodash.isempty");
-const EventEmitter = require("events").EventEmitter;
 const jsondiffpatch = require("../lib/diffpatch");
-const COMMANDS = require("../lib/commands");
 const deepCopy = require("../lib/deepCopy");
+const eventMap = require("../lib/eventMap");
 const methodsToBind = [
-    "_onConnected", "syncWithServer", "applyServerEdit", "applyServerEdits", "schedule", "onRemoteUpdate"
+    "initialize", "syncWithServer", "applyServerEdit", "applyServerEdits", "schedule"
 ];
 
+const EVENTS = eventMap({
+    SYNCED: "sync:done",
+    ERROR: "sync:error",
+    SYNC_EDITS: "sync:edits"
+});
 
-class SyncService extends EventEmitter {
 
-    constructor(socket, room = "", diffOptions = {}) {
-        super();
+class ClientSyncService {
 
-        if (!socket) {
-            throw new Error("No socket specified");
-        }
-
-        this.socket = socket;
+    constructor(room = "", diffOptions = {}) {
+        this.emitter = mitt();
         this.room = room;
-        this.syncing = false;
+        this.syncing = true;
         this.initialized = false;
         this.scheduled = false;
         this.doc = {
@@ -32,12 +32,19 @@ class SyncService extends EventEmitter {
 
         this.jsondiffpatch = jsondiffpatch.create(diffOptions);
 
-        // let client be an EventEmitter
-        EventEmitter.call(this);
-
         // bind functions
         methodsToBind.forEach((method) => (this[method] = this[method].bind(this)));
     }
+
+    on(...args) {
+        if (args[0] == null) {
+            throw new Error(`Undefined event-type in SyncService ${args}`);
+        }
+        this.emitter.on(...args);
+    }
+
+    off(...args) { this.emitter.off(...args); }
+    emit(...args) { this.emitter.emit(...args); }
 
     /**
      * Get the data
@@ -48,20 +55,15 @@ class SyncService extends EventEmitter {
     }
 
     /**
-     * Initializes the sync session
-     */
-    initialize() {
-        // connect, join room and initialize
-        this.syncing = true;
-        this.socket.emit(COMMANDS.join, this.room, this._onConnected);
-    }
-
-    /**
      * Sets up the local version and listens to server updates
      * Will notify the `onConnected` callback.
      * @param  {Object} initialVersion The initial version from the server
      */
-    _onConnected(initialVersion) {
+    initialize(initialVersion) {
+        if (initialVersion == null || typeof initialVersion !== "object") {
+            throw new Error("Missing initial data in ClientSyncService. initialVersion must be of type 'object'");
+        }
+
         // client is not syncing anymore and is initialized
         this.syncing = false;
         this.initialized = true;
@@ -73,23 +75,6 @@ class SyncService extends EventEmitter {
         this.doc.shadow = deepCopy(initialVersion);
         this.doc.localCopy = initialVersion;
         this.doc.serverVersion = 0;
-
-        // listen to incoming updates from the server
-        this.socket.on(COMMANDS.remoteUpdateIncoming, this.onRemoteUpdate);
-
-        // notify about established connection
-        this.emit("connected");
-    }
-
-    /**
-     * Handler for remote updates
-     * @param  {String} fromId id from the socket that initiated the update
-     */
-    onRemoteUpdate(fromId) {
-        // only schedule if the update was not initiated by this client
-        if (this.socket.id !== fromId) {
-            this.schedule();
-        }
     }
 
     /**
@@ -102,7 +87,6 @@ class SyncService extends EventEmitter {
             return;
         }
         this.scheduled = true;
-
         // try to sync now
         this.syncWithServer();
     }
@@ -147,7 +131,7 @@ class SyncService extends EventEmitter {
         this.applyPatchTo(this.doc.shadow, deepCopy(diff));
 
         // 5) send the edits to the server
-        this.sendEdits(editMessage);
+        this.emit(EVENTS.SYNC_EDITS, editMessage);
 
         // yes, we're syncing
         return true;
@@ -204,14 +188,6 @@ class SyncService extends EventEmitter {
 
 
     /**
-     * Send the the edits to the server and applies potential updates from the server
-     * @param {Object} editMessage
-     */
-    sendEdits(editMessage) {
-        this.socket.emit(COMMANDS.syncWithServer, editMessage, this.applyServerEdits);
-    }
-
-    /**
      * Applies all edits from the server and notfies about changes
      * @param {Object} serverEdits  - The edits message
      */
@@ -223,14 +199,14 @@ class SyncService extends EventEmitter {
             serverEdits.edits.forEach(this.applyServerEdit);
         } else {
             // Rejected patch because localVersions don"t match
-            this.emit("error", "REJECTED_PATCH");
+            this.emit(EVENTS.ERROR, new Error("rejected patch from server - versions do not match"));
         }
 
         // we are not syncing any more
         this.syncing = false;
 
         // notify about sync
-        this.emit("synced");
+        this.emit(EVENTS.SYNCED);
 
         // if a sync has been scheduled, sync again
         if (this.scheduled) {
@@ -269,4 +245,5 @@ class SyncService extends EventEmitter {
 }
 
 
-module.exports = SyncService;
+module.exports = ClientSyncService;
+module.exports.EVENTS = EVENTS;

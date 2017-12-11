@@ -2,13 +2,14 @@ const isEmpty = require("lodash.isempty");
 const EventEmitter = require("events").EventEmitter;
 const jsondiffpatch = require("../lib/diffpatch");
 const deepCopy = require("../lib/deepCopy");
+const eventMap = require("../lib/eventMap");
 
 
-const EVENTS = {
+const EVENTS = eventMap({
     USER_JOINED: "user:joined",
     SERVER_SYNC: "server:sync",
     ERROR_INVALID_CONNECTION: "error:invalid-connection"
-};
+});
 
 
 class SyncService extends EventEmitter {
@@ -199,6 +200,7 @@ class SyncService extends EventEmitter {
         this.getData(room)
             .then((data) => {
                 if (data === false) {
+                    console.log("abort join, data is invalid", connection.id);
                     return;
                 }
 
