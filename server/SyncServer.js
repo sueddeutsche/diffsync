@@ -39,7 +39,7 @@ class SyncServer {
 
         // user invalid, reconnect
         syncService.on(SyncService.EVENTS.ERROR_INVALID_CONNECTION, (userConnection, room) => {
-            userConnection.emit(COMMANDS.error, "Need to re-connect!");
+            userConnection.emit(COMMANDS.error, new Error("Invalid connection - reconnect."));
         });
 
         userService.on(UserService.EVENTS.UPDATE_USERS, (room, users) => {
@@ -61,7 +61,7 @@ class SyncServer {
                 .then((isAuthenticated) => {
                     if (isAuthenticated === false) {
                         log(`[ABORT] join request ${connection.id} -- auth failed`);
-                        connection.emit(COMMANDS.error, "not authorized");
+                        connection.emit(COMMANDS.error, new Error("Authorization failed"));
                         return;
                     }
                     this._joinUser(connection, room, initializeClient);
