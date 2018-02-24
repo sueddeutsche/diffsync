@@ -3,7 +3,8 @@ const eventMap = require("../lib/eventMap");
 
 
 const EVENTS = eventMap({
-    UPDATE_USERS: "update_users"
+    UPDATE_USERS: "update:users",
+    ROOM_EMPTY: "room:empty",
 });
 
 
@@ -12,6 +13,7 @@ class UserService extends EventEmitter {
     constructor() {
         super();
         this.users = {};
+        this.EVENTS = EVENTS;
     }
 
     getUsers(room) {
@@ -27,6 +29,9 @@ class UserService extends EventEmitter {
     removeUser(connection, room) {
         this.users[room] = this.users[room].filter((registeredUser) => registeredUser.id !== connection.id);
         this.emit(EVENTS.UPDATE_USERS, room, this.users[room]);
+        if (this.users[room].length === 0) {
+            this.emit(EVENTS.ROOM_EMPTY, room);
+        }
     }
 
     updateMetaData(connection, room, meta) {
