@@ -52,6 +52,10 @@ class SyncClient {
         socket.on(COMMANDS.error, (message) => {
             console.log("Connection Failed", message);
         });
+
+        socket.on(COMMANDS.close, (message) => {
+            console.log("Close Connection to Sync Server", message);
+        });
     }
 
     /**

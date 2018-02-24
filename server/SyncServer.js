@@ -49,6 +49,10 @@ class SyncServer {
         this.transport.on("connection", (connection) => this.joinUser(connection, auth));
     }
 
+    close() {
+        this.transport.emit(COMMANDS.close, "SyncServer is shutting down");
+    }
+
     joinUser(connection, auth) {
         // establish connection with syncservice
         connection.on(COMMANDS.join, (credentials, room, initializeClient) => {
