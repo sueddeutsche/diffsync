@@ -1,6 +1,6 @@
 {
   "name": "json-sync",
-  "version": "4.3.0",
+  "version": "4.4.0",
   "description": "Real time collaborative editing for JSON objects",
   "main": "index.js",
   "scripts": {
