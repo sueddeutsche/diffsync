@@ -26,6 +26,7 @@ class SyncService extends EventEmitter {
         this.requests = {};
         this.saveRequests = {};
         this.saveQueue = {};
+        this.closeQueue = {};
 
         this.jsondiffpatch = jsondiffpatch.create(diffOptions);
     }
@@ -197,7 +198,8 @@ class SyncService extends EventEmitter {
      * @param  {Function} initializeClient Callback that is being used for initialization of the client
      */
     joinConnection(connection, room, initializeClient) {
-        this.getData(room)
+        (this.closeQueue[room] ? this.closeQueue[room] : Promise.resolve())
+            .then(() => this.getData(room))
             .then((data) => {
                 if (data === false) {
                     console.log("abort join, data is invalid", connection.id);
@@ -267,6 +269,24 @@ class SyncService extends EventEmitter {
             serverVersion: basedOnServerVersion,
             edits: clientDoc.edits
         });
+    }
+
+    close(room) {
+        this.closeQueue[room] = this.saveSnapshot(room)
+            .then(() => {
+                delete this.data[room];
+                delete this.requests[room];
+                delete this.saveRequests[room];
+                delete this.saveQueue[room];
+
+                delete this.closeQueue[room];
+            })
+            .catch((err) => {
+                console.log("Failed to close room %s", room);
+                throw err;
+            });
+
+        return this.closeQueue[room];
     }
 }
 
