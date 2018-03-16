@@ -46,6 +46,10 @@ class SyncServer {
             transport.to(room).emit(COMMANDS.updateUsers, users);
         });
 
+        userService.on(UserService.EVENTS.ROOM_EMPTY, (room) => {
+            syncService.close(room);
+        });
+
         this.transport.on("connection", (connection) => this.joinUser(connection, auth));
     }
 
